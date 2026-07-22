@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Routine</title>
+  <link rel="manifest" href="data:application/manifest+json;utf8,{"name":"Routine","short_name":"Routine","start_url":".","display":"standalone","background_color":"#0f172a","theme_color":"#1e293b"}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    :root {
+      --bg-main: #0f172a;
+      --bg-card: #1e293b;
+      --bg-hover: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --accent-rpg: #f59e0b;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --border: #334155;
+      --radius: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    body { background-color: var(--bg-main); color: var(--text-main); display: flex; flex-direction: column; min-height: 100vh; }
+
+    #auth-overlay {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px);
+      z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .auth-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 25px; width: 100%; max-width: 380px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    .auth-card h2 { margin-bottom: 15px; color: var(--primary); }
+    .auth-toggle { font-size: 0.82rem; color: var(--text-muted); margin-top: 10px; cursor: pointer; text-decoration: underline; }
+
+    header { background-color: var(--bg-card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; padding: 8px 12px; }
+    .header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .brand { font-size: 1.1rem; font-weight: 800; color: var(--primary); letter-spacing: 0.5px; }
+    
+    .clock-widget {
+      font-size: 0.78rem; font-weight: 600; color: var(--text-muted); background: var(--bg-main);
+      padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border);
+      display: flex; align-items: center; gap: 4px; white-space: nowrap;
+    }
+    .clock-widget span { color: var(--text-main); font-variant-numeric: tabular-nums; font-weight: 700; }
+
+    .user-info-head { font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+    .btn-logout { background: transparent; border: none; color: var(--danger); cursor: pointer; font-size: 0.75rem; font-weight: 600; padding: 0; }
+
+    .nav-horizontal { display: flex; list-style: none; gap: 6px; overflow-x: auto; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+    .nav-horizontal::-webkit-scrollbar { display: none; }
+    .nav-item {
+      padding: 6px 12px; border-radius: 20px; cursor: pointer; color: var(--text-muted); font-weight: 600;
+      font-size: 0.8rem; transition: all 0.2s ease; white-space: nowrap; background-color: var(--bg-main);
+      border: 1px solid var(--border); display: flex; align-items: center; gap: 5px;
+    }
+    .nav-item:hover, .nav-item.active { background-color: var(--primary); color: #fff; border-color: var(--primary); }
+
+    main { flex: 1; max-width: 1400px; width: 100%; margin: 0 auto; padding: 15px 12px; }
+    .tab-content { display: none; animation: fadeIn 0.2s ease-in-out; }
+    .tab-content.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .header-title {
+      font-size: 1.25rem; margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+    }
+
+    .alert-banner {
+      background-color: rgba(245, 158, 11, 0.15); border: 1px solid var(--accent-rpg);
+      color: #fbbf24; padding: 10px 14px; border-radius: var(--radius); margin-bottom: 15px;
+      display: flex; align-items: center; gap: 10px; font-size: 0.88rem; font-weight: 600;
+    }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+    .card { background-color: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 15px; margin-bottom: 15px; }
+    .card-title { font-size: 0.95rem; color: var(--primary); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+
+    input, select, button, textarea {
+      width: 100%; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border);
+      background-color: var(--bg-main); color: var(--text-main); margin-bottom: 8px; font-size: 0.9rem; outline: none;
+    }
+    button { background-color: var(--primary); color: #fff; font-weight: 600; cursor: pointer; border: none; transition: background 0.2s; }
+    button:hover { background-color: var(--primary-hover); }
+
+    .rpg-badge { background-color: var(--accent-rpg); color: #000; padding: 3px 10px; border-radius: 15px; font-weight: 700; font-size: 0.75rem; }
+    .progress-bar { width: 100%; height: 10px; background-color: var(--bg-main); border-radius: 5px; overflow: hidden; margin-top: 6px; }
+    .progress-fill { height: 100%; background-color: var(--primary); width: 0%; transition: width 0.3s ease; }
+
+    .item-list { list-style: none; }
+    .item-list li {
+      background-color: var(--bg-main); padding: 8px 12px; border-radius: 6px; margin-bottom: 6px;
+      display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border); font-size: 0.88rem;
+    }
+
+    .routine-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px; }
+    .routine-card-wrapper {
+      position: relative; background-color: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 8px; transition: all 0.2s ease;
+    }
+    .routine-card-wrapper.selected { background-color: var(--primary); border-color: var(--primary-hover); }
+
+    .routine-btn-label {
+      flex: 1; background: none; border: none; color: var(--text-main);
+      font-size: 0.85rem; font-weight: 700; text-align: left; padding: 8px 4px; margin-bottom: 0; cursor: pointer;
+    }
+
+    .routine-actions { display: flex; gap: 4px; }
+    .btn-icon {
+      background: rgba(15, 23, 42, 0.5); border: 1px solid var(--border); color: var(--text-main);
+      border-radius: 6px; width: 28px; height: 28px; padding: 0; margin-bottom: 0; font-size: 0.75rem;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .btn-icon:hover { background: var(--bg-hover); }
+    .btn-icon.danger:hover { background: var(--danger); border-color: var(--danger); }
+
+    .item-actions { display: flex; gap: 4px; margin-left: 8px; }
+    .item-actions .btn-icon { width: 24px; height: 24px; font-size: 0.7rem; }
+
+    .performance-card { background-color: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 15px; }
+    .performance-header { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 0.8rem; color: var(--text-muted); }
+
+    .bible-reader-box {
+      font-family: Georgia, serif; line-height: 1.8; font-size: 1rem; background-color: var(--bg-main);
+      padding: 20px 15px; border-radius: var(--radius); border-left: 3px solid var(--primary); max-height: 65vh; overflow-y: auto; color: #e2e8f0;
+    }
+    .bible-reader-box p { margin-bottom: 10px; }
+    .bible-reader-box strong { color: var(--primary); font-family: 'Inter', sans-serif; font-size: 0.85rem; margin-right: 4px; }
+
+    .bible-books-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+    .book-card { background-color: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+    .book-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-weight: 600; font-size: 0.85rem; }
+    .chapters-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+    
+    .chip-ch {
+      width: 26px; height: 26px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center;
+      border-radius: 4px; background-color: var(--bg-card); border: 1px solid var(--border); cursor: pointer; user-select: none;
+    }
+    .chip-ch.read { background-color: var(--success); color: #000; font-weight: bold; }
+
+    .chart-container { position: relative; width: 100%; max-width: 260px; margin: 0 auto; }
+
+    @media (max-width: 768px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+  <!-- AUTH OVERLAY -->
+  <div id="auth-overlay">
+    <div class="auth-card">
+      <h2 id="auth-title">Entrar na Routine</h2>
+      <input type="text" id="auth-user" placeholder="Usuário">
+      <input type="password" id="auth-pass" placeholder="Senha">
+      <button onclick="submitAuth()" id="auth-btn-text">Entrar</button>
+      <div class="auth-toggle" onclick="toggleAuthMode()" id="auth-toggle-text">Não tem uma conta? Cadastre-se</div>
+    </div>
+  </div>
+
+  <header>
+    <div class="header-top">
+      <div class="brand">Routine</div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div class="clock-widget">
+          🕒 <span>BSB</span> <span id="brasilia-clock">00:00:00</span>
+        </div>
+        <div class="user-info-head">
+          <span id="logged-user-display">👤 Conectado</span>
+          <button class="btn-logout" onclick="logout()">[Sair]</button>
+        </div>
+      </div>
+    </div>
+    
+    <ul class="nav-horizontal">
+      <li class="nav-item active" id="nav-rotinas" onclick="switchTab('rotinas', this)">📋 Rotinas</li>
+      <li class="nav-item" id="nav-financas" onclick="switchTab('financas', this)">🔒 Finanças</li>
+      <li class="nav-item" id="nav-uber" onclick="switchTab('uber', this)">🚗 Uber</li>
+      <li class="nav-item" id="nav-saude-rpg" onclick="switchTab('saude-rpg', this)">⚔️ Hábitos</li>
+      <li class="nav-item" id="nav-leitura-biblica" onclick="switchTab('leitura-biblica', this)">📖 Plano Bíblico</li>
+      <li class="nav-item" id="nav-agenda" onclick="switchTab('agenda', this)">📅 Agenda</li>
+      <li class="nav-item" id="nav-metas" onclick="switchTab('metas', this)">🎯 Metas</li>
+      <li class="nav-item" id="nav-biblia-dia" onclick="switchTab('biblia-dia', this)">📖 Bíblia Leitura</li>
+    </ul>
+  </header>
+
+  <main>
+
+    <!-- BANNER DE ALERTA -->
+    <div id="today-agenda-alert" class="alert-banner" style="display: none;">
+      <span>📅</span>
+      <span id="today-alert-text">Você tem compromissos agendados para hoje!</span>
+    </div>
+
+    <!-- ABA 1: ROTINAS -->
+    <section id="rotinas" class="tab-content active">
+      <div class="header-title">
+        <span>Modo do Dia</span>
+        <button onclick="addRoutineMode()" style="width: auto; padding: 4px 10px; font-size: 0.8rem;">+ Modo</button>
+      </div>
+
+      <div class="routine-grid" id="routine-modes-container"></div>
+
+      <div class="performance-card">
+        <div class="performance-header">
+          <span>DESEMPENHO DIÁRIO</span>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="daily-performance-val" style="color: var(--primary);">0%</span>
+            <button onclick="resetPerformance()" style="width: auto; padding: 2px 6px; font-size: 0.7rem; background: var(--border);">Resetar</button>
+          </div>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="daily-performance-bar" style="width: 0%;"></div></div>
+      </div>
+      <br>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">
+            <span>Checklist do Dia</span>
+            <button onclick="addItem('list-dia')" style="width: auto; padding: 3px 8px;">+ Item</button>
+          </div>
+          <ul class="item-list" id="list-dia"></ul>
+        </div>
+        
+        <!-- RESUMO SEMANAL -->
+        <div class="card">
+          <div class="card-title">Resumo dos Últimos 7 Dias</div>
+          <div style="height: 180px;">
+            <canvas id="weeklyChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 2: FINANÇAS -->
+    <section id="financas" class="tab-content">
+      <div class="header-title">
+        <span>Controle Financeiro 🔒</span>
+        <div style="display:flex; gap:8px;">
+          <button onclick="changeFinancePassword()" style="width: auto; padding: 4px 8px; font-size: 0.75rem; background: var(--bg-hover);">🔑 Alterar Senha</button>
+          <select id="fin-month-filter" onchange="updateFinanceUI()" style="width: auto; padding: 4px 8px; font-size: 0.8rem; margin-bottom:0;">
+            <option value="ALL">Todos os Meses</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="card">
+          <h3>Entradas</h3>
+          <h2 id="total-receita" style="color: var(--success); margin-top: 5px; font-size: 1.2rem;">R$ 0,00</h2>
+        </div>
+        <div class="card">
+          <h3>Saídas</h3>
+          <h2 id="total-despesa" style="color: var(--danger); margin-top: 5px; font-size: 1.2rem;">R$ 0,00</h2>
+        </div>
+        <div class="card">
+          <h3>Saldo</h3>
+          <h2 id="total-saldo" style="color: var(--primary); margin-top: 5px; font-size: 1.2rem;">R$ 0,00</h2>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Novo Lançamento</div>
+          <input type="text" id="fin-desc" placeholder="Descrição (ex: Salário, Mercado)">
+          <input type="number" id="fin-val" placeholder="Valor (R$)">
+          <select id="fin-cat">
+            <option value="Fixos">Gastos Fixos / Recorrência</option>
+            <option value="Lazer">Lazer & Variáveis</option>
+            <option value="Investimentos">Investimentos</option>
+            <option value="Outros">Outros</option>
+            <option value="Entrada">Entrada / Receita</option>
+          </select>
+          <button onclick="addTransacao()">Adicionar Lançamento</button>
+        </div>
+
+        <div class="card" style="text-align: center;">
+          <div class="card-title">Distribuição de Gastos</div>
+          <div class="chart-container"><canvas id="financeChart"></canvas></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Histórico de Lançamentos</div>
+        <ul class="item-list" id="fin-list"></ul>
+      </div>
+    </section>
+
+    <!-- ABA 3: UBER -->
+    <section id="uber" class="tab-content">
+      <div class="header-title">
+        <span>Controle de Uber 🚗</span>
+        <select id="uber-month-filter" onchange="updateUberUI()" style="width: auto; padding: 4px 8px; font-size: 0.8rem; margin-bottom:0;">
+          <option value="ALL">Todos os Meses</option>
+        </select>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Gasto do Mês Selecionado</h3>
+          <h2 id="uber-total-month" style="color: var(--accent-rpg); margin-top: 5px; font-size: 1.3rem;">R$ 0,00</h2>
+        </div>
+        <div class="card">
+          <h3>Total Acumulado Geral</h3>
+          <h2 id="uber-total-all" style="color: var(--danger); margin-top: 5px; font-size: 1.3rem;">R$ 0,00</h2>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Registrar Corrida</div>
+          <input type="text" id="uber-desc" placeholder="Descrição (ex: Trabalho, Volta do Shopping)">
+          <input type="number" id="uber-val" step="0.01" placeholder="Valor da Corrida (R$)">
+          <button onclick="addUberTrip()">Adicionar Gasto de Uber</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Histórico de Corridas</div>
+          <ul class="item-list" id="uber-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 4: HÁBITOS (COM PEDAL E CAMINHADA) -->
+    <section id="saude-rpg" class="tab-content">
+      <div class="header-title">
+        <span>Hábitos</span>
+        <span class="rpg-badge">Nível <span id="player-level">1</span> | XP: <span id="player-xp">0</span></span>
+      </div>
+
+      <!-- RELATÓRIO DO DIA ANTERIOR -->
+      <div class="card" style="border-left: 4px solid var(--accent-rpg);">
+        <div class="card-title">📊 Relatório do Dia Anterior (<span id="prev-day-date">--</span>)</div>
+        <p id="prev-day-text" style="font-size: 0.9rem; color: var(--text-muted);">Carregando dados do dia anterior...</p>
+      </div>
+
+      <div class="grid-3">
+        <!-- ÁGUA -->
+        <div class="card">
+          <div class="card-title">💧 Água</div>
+          <h3><span id="water-current">0</span> / 3000 ml</h3>
+          <div class="progress-bar"><div class="progress-fill" id="water-bar"></div></div>
+          <div style="display: flex; gap: 4px; margin-top: 12px; flex-wrap: wrap;">
+            <button onclick="addWater(180)" style="flex:1; font-size:0.75rem;">+ 180ml</button>
+            <button onclick="addWater(250)" style="flex:1; font-size:0.75rem;">+ 250ml</button>
+            <button onclick="addWater(500)" style="flex:1; font-size:0.75rem;">+ 500ml</button>
+          </div>
+        </div>
+
+        <!-- PEDAL -->
+        <div class="card">
+          <div class="card-title">🚴 Pedal</div>
+          <label style="font-size: 0.8rem;"><input type="checkbox" id="bike-today" style="width: auto;"> Veio de Bike Hoje? (+50 XP)</label>
+          <input type="number" id="bike-km" placeholder="Distância (km)" style="margin-top: 6px;">
+          <input type="number" id="bike-min" placeholder="Tempo (minutos)">
+          <button onclick="registrarPedal()">Registrar Treino</button>
+        </div>
+
+        <!-- CAMINHADA -->
+        <div class="card">
+          <div class="card-title">🚶 Caminhada</div>
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 6px;">
+            <label style="font-size: 0.8rem;"><input type="checkbox" id="walk-ida" onchange="toggleWalkOptions('ida')" style="width: auto;"> Fiz Caminhada (Ida ou Volta)</label>
+            <label style="font-size: 0.8rem;"><input type="checkbox" id="walk-idavolta" onchange="toggleWalkOptions('idavolta')" style="width: auto;"> Fiz Caminhada (Ida e Volta)</label>
+          </div>
+          <input type="number" id="walk-km" step="0.1" placeholder="Distância (km)">
+          <input type="number" id="walk-min" placeholder="Tempo (minutos)">
+          <button onclick="registrarCaminhada()">Registrar Caminhada</button>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Histórico de Pedais</div>
+          <ul class="item-list" id="bike-history-list"></ul>
+        </div>
+        <div class="card">
+          <div class="card-title">Histórico de Caminhadas</div>
+          <ul class="item-list" id="walk-history-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 5: PLANO BÍBLICO (PROGRESSO) -->
+    <section id="leitura-biblica" class="tab-content">
+      <div class="header-title">
+        <span>Plano Bíblico (66 Livros)</span>
+        <span class="rpg-badge">Concluído: <span id="bible-total-percent">0.0%</span></span>
+      </div>
+      <div class="card">
+        <div class="card-title">Progresso Geral (1.189 Capítulos)</div>
+        <div class="progress-bar"><div class="progress-fill" id="bible-global-bar"></div></div>
+      </div>
+      <div class="bible-books-grid" id="bible-books-container"></div>
+    </section>
+
+    <!-- ABA 6: AGENDA -->
+    <section id="agenda" class="tab-content">
+      <div class="header-title">Agenda</div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Novo Compromisso</div>
+          <input type="text" id="ag-title" placeholder="Título">
+          <input type="date" id="ag-date">
+          <input type="time" id="ag-time">
+          <button onclick="addAgenda()">Agendar</button>
+        </div>
+        <div class="card">
+          <div class="card-title">Compromissos</div>
+          <ul class="item-list" id="ag-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 7: METAS + BACKUP -->
+    <section id="metas" class="tab-content">
+      <div class="header-title">
+        <span>Painel de Metas</span>
+        <div style="display: flex; gap: 6px;">
+          <button onclick="downloadSelfHtml()" style="width: auto; padding: 4px 8px; font-size: 0.75rem; background: var(--success); color: #000;">📥 Baixar index.html</button>
+          <button onclick="exportBackup()" style="width: auto; padding: 4px 8px; font-size: 0.75rem;">💾 Backup Dados</button>
+          <button onclick="importBackup()" style="width: auto; padding: 4px 8px; font-size: 0.75rem; background: var(--bg-hover);">📂 Importar Dados</button>
+        </div>
+      </div>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-title">🎯 Curto Prazo (30 dias)</div>
+          <input type="text" placeholder="Adicionar meta..." onkeypress="addMeta(event, 'meta-curto')">
+          <ul class="item-list" id="meta-curto"></ul>
+        </div>
+        <div class="card">
+          <div class="card-title">🚀 Médio Prazo (6 meses)</div>
+          <input type="text" placeholder="Adicionar meta..." onkeypress="addMeta(event, 'meta-medio')">
+          <ul class="item-list" id="meta-medio"></ul>
+        </div>
+        <div class="card">
+          <div class="card-title">🏆 Longo Prazo (1 ano+)</div>
+          <input type="text" placeholder="Adicionar meta..." onkeypress="addMeta(event, 'meta-longo')">
+          <ul class="item-list" id="meta-longo"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 8: BÍBLIA COMPLETA (LEITURA) -->
+    <section id="biblia-dia" class="tab-content">
+      <div class="header-title">
+        <span>Bíblia Sagrada (Leitura)</span>
+      </div>
+      <div class="card">
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+          <select id="bible-select-book" style="flex: 2; margin-bottom: 0;" onchange="updateChapterOptions()"></select>
+          <select id="bible-select-chapter" style="flex: 1; margin-bottom: 0;"></select>
+          <button onclick="fetchFullBibleChapter()" style="width: auto; margin-bottom: 0; padding: 8px 16px;">Ler Capítulo</button>
+        </div>
+        <div class="bible-reader-box" id="full-bible-content">Selecione o livro e o capítulo acima para iniciar a leitura.</div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // AUTHENTICATION
+    let authMode = 'login';
+    let currentUser = null;
+    let isFinanceUnlocked = false;
+
+    function toggleAuthMode() {
+      authMode = authMode === 'login' ? 'register' : 'login';
+      document.getElementById('auth-title').innerText = authMode === 'login' ? 'Entrar na Routine' : 'Criar Conta na Routine';
+      document.getElementById('auth-btn-text').innerText = authMode === 'login' ? 'Entrar' : 'Cadastrar';
+      document.getElementById('auth-toggle-text').innerText = authMode === 'login' ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Faça login';
+    }
+
+    function submitAuth() {
+      const user = document.getElementById('auth-user').value.trim();
+      const pass = document.getElementById('auth-pass').value.trim();
+
+      if (!user || !pass) { alert('Preencha usuário e senha.'); return; }
+
+      const users = JSON.parse(localStorage.getItem('routine_users') || '{}');
+
+      if (authMode === 'register') {
+        if (users[user]) { alert('Este usuário já existe.'); return; }
+        users[user] = { pass, data: null };
+        localStorage.setItem('routine_users', JSON.stringify(users));
+        alert('Conta criada com sucesso!');
+        currentUser = user;
+      } else {
+        if (!users[user] || users[user].pass !== pass) { alert('Usuário ou senha incorretos.'); return; }
+        currentUser = user;
+      }
+
+      localStorage.setItem('routine_current_user', currentUser);
+      document.getElementById('auth-overlay').style.display = 'none';
+      document.getElementById('logged-user-display').innerText = `👤 ${currentUser}`;
+      loadState();
+      checkDailyReset();
+      initApp();
+    }
+
+    function logout() {
+      localStorage.removeItem('routine_current_user');
+      location.reload();
+    }
+
+    // STATE & STORAGE
+    let state = {
+      xp: 0,
+      level: 1,
+      water: 0,
+      financePass: null,
+      transacoes: [],
+      uberTrips: [],
+      receita: 0,
+      despesa: 0,
+      catTotals: { "Fixos": 0, "Lazer": 0, "Investimentos": 0, "Outros": 0 },
+      routineModes: [
+        { id: 1, name: "🏢🚴 [A] CLT c/ Pedal", perf: 25 },
+        { id: 2, name: "🏢 [B] CLT s/ Pedal", perf: 50 },
+        { id: 3, name: "🌴🎮 [C] Folga c/ Lazer", perf: 75 },
+        { id: 4, name: "🌴💤 [D] Folga Total", perf: 100 }
+      ],
+      selectedModeId: null,
+      customPerformance: null,
+      checklistDia: ["Cumprir meta de foco", "Treino / Pedal executado"],
+      agenda: [],
+      metas: { curto: ["Ajustar bike"], medio: ["Reserva de emergência"], longo: ["Projeto finalizado"] },
+      readChapters: {},
+      bikeHistory: [],
+      walkHistory: [],
+      lastActiveDate: null,
+      dailyHistory: {}
+    };
+
+    function saveState() {
+      if (!currentUser) return;
+      const users = JSON.parse(localStorage.getItem('routine_users') || '{}');
+      if (users[currentUser]) {
+        users[currentUser].data = state;
+        localStorage.setItem('routine_users', JSON.stringify(users));
+      }
+    }
+
+    function loadState() {
+      if (!currentUser) return;
+      const users = JSON.parse(localStorage.getItem('routine_users') || '{}');
+      if (users[currentUser] && users[currentUser].data) {
+        state = users[currentUser].data;
+        if (!state.catTotals["Outros"]) state.catTotals["Outros"] = 0;
+        if (!state.bikeHistory) state.bikeHistory = [];
+        if (!state.walkHistory) state.walkHistory = [];
+        if (!state.uberTrips) state.uberTrips = [];
+        if (!state.dailyHistory) state.dailyHistory = {};
+      }
+    }
+
+    // PROTEÇÃO POR SENHA DA ABA FINANÇAS
+    function verifyFinanceTabAccess() {
+      if (isFinanceUnlocked) return true;
+
+      if (!state.financePass) {
+        const newPass = prompt('🔒 Defina uma senha numérica (apenas números) para proteger sua aba de Finanças:');
+        if (!newPass || !/^\d+$/.test(newPass.trim())) {
+          alert('A senha deve conter apenas números! Tente novamente.');
+          return false;
+        }
+        state.financePass = newPass.trim();
+        saveState();
+        isFinanceUnlocked = true;
+        alert('Senha das Finanças cadastrada com sucesso!');
+        return true;
+      } else {
+        const inputPass = prompt('🔒 A aba Finanças é protegida. Digite sua senha numérica para acessar:');
+        if (inputPass === state.financePass) {
+          isFinanceUnlocked = true;
+          return true;
+        } else {
+          alert('Senha incorreta! Acesso negado.');
+          return false;
+        }
+      }
+    }
+
+    function changeFinancePassword() {
+      const current = prompt('Digite sua senha atual das Finanças:');
+      if (current === state.financePass) {
+        const newPass = prompt('Digite a nova senha (apenas números):');
+        if (newPass && /^\d+$/.test(newPass.trim())) {
+          state.financePass = newPass.trim();
+          saveState();
+          alert('Senha alterada com sucesso!');
+        } else {
+          alert('Senha inválida! A senha deve conter apenas números.');
+        }
+      } else {
+        alert('Senha atual incorreta!');
+      }
+    }
+
+    // RESET DIÁRIO E GRAVAÇÃO DO DIA ANTERIOR
+    function getTodayStr() {
+      return new Date().toISOString().split('T')[0];
+    }
+
+    function getYesterdayStr() {
+      const d = new Date();
+      d.setDate(d.getDate() - 1);
+      return d.toISOString().split('T')[0];
+    }
+
+    function checkDailyReset() {
+      const today = getTodayStr();
+      if (state.lastActiveDate && state.lastActiveDate !== today) {
+        const prevPerf = state.customPerformance !== null ? state.customPerformance : 0;
+        state.dailyHistory[state.lastActiveDate] = {
+          perf: prevPerf,
+          water: state.water
+        };
+
+        state.customPerformance = 0;
+        state.selectedModeId = null;
+        state.water = 0;
+      }
+      state.lastActiveDate = today;
+      saveState();
+    }
+
+    // RELÓGIO DE BRASÍLIA
+    function updateBrasiliaClock() {
+      const now = new Date();
+      const options = { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', second: '2-digit' };
+      document.getElementById('brasilia-clock').innerText = new Intl.DateTimeFormat('pt-BR', options).format(now);
+    }
+    setInterval(updateBrasiliaClock, 1000);
+    updateBrasiliaClock();
+
+    // LEMBRETES DE ÁGUA
+    function requestNotificationPermission() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    function triggerWaterReminder() {
+      if ('Notification' in window && Notification.permission === 'granted' && state.water < 3000) {
+        new Notification("Routine - Lembrete de Hidratação 💧", {
+          body: `Você consumiu ${state.water}ml até agora. Hora de beber mais água!`,
+          icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>"
+        });
+      }
+    }
+    setInterval(triggerWaterReminder, 2 * 60 * 60 * 1000);
+
+    // ALERTAS DE AGENDA
+    function checkTodayAgendaAlert() {
+      const today = getTodayStr();
+      const todayEvents = state.agenda.filter(a => a.date === today);
+      const alertBanner = document.getElementById('today-agenda-alert');
+      
+      if (todayEvents.length > 0) {
+        alertBanner.style.display = 'flex';
+        document.getElementById('today-alert-text').innerText = `Atenção: Você tem ${todayEvents.length} compromisso(s) agendado(s) para HOJE!`;
+      } else {
+        alertBanner.style.display = 'none';
+      }
+    }
+
+    // GAMIFICAÇÃO & RPG
+    function addXP(amount) {
+      state.xp += amount;
+      if (state.xp >= 100) {
+        state.level += Math.floor(state.xp / 100);
+        state.xp = state.xp % 100;
+        triggerLevelUpAnimation();
+      }
+      document.getElementById('player-xp').innerText = state.xp;
+      document.getElementById('player-level').innerText = state.level;
+      saveState();
+    }
+
+    function triggerLevelUpAnimation() {
+      if (typeof confetti === 'function') {
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      }
+      alert(`🎉 LEVEL UP! Você alcançou o Nível ${state.level}!`);
+    }
+
+    // TROCA DE ABAS
+    function switchTab(tabId, element) {
+      if (tabId === 'financas') {
+        const allowed = verifyFinanceTabAccess();
+        if (!allowed) return;
+      }
+
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      
+      document.getElementById(tabId).classList.add('active');
+      if (element) {
+        element.classList.add('active');
+      } else {
+        const navEl = document.getElementById(`nav-${tabId}`);
+        if (navEl) navEl.classList.add('active');
+      }
+
+      if (tabId === 'biblia-dia') {
+        initFullBibleSelectors();
+      }
+    }
+
+    // ROTINAS
+    function renderRoutineModes() {
+      const container = document.getElementById('routine-modes-container');
+      container.innerHTML = '';
+
+      state.routineModes.forEach(mode => {
+        const isSelected = mode.id === state.selectedModeId ? 'selected' : '';
+        const div = document.createElement('div');
+        div.className = `routine-card-wrapper ${isSelected}`;
+
+        div.innerHTML = `
+          <button class="routine-btn-label" onclick="selectRoutineMode(${mode.id}, ${mode.perf})">
+            ${mode.name}
+          </button>
+          <div class="routine-actions">
+            <button class="btn-icon" title="Editar Modo" onclick="editRoutineMode(${mode.id})">✏️</button>
+            <button class="btn-icon danger" title="Excluir Modo" onclick="deleteRoutineMode(${mode.id})">🗑️</button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+
+      updatePerformanceDisplay();
+    }
+
+    function selectRoutineMode(id, performance) {
+      state.selectedModeId = id;
+      state.customPerformance = performance;
+      renderRoutineModes();
+      saveState();
+      renderWeeklyChart();
+    }
+
+    function resetPerformance() {
+      state.selectedModeId = null;
+      state.customPerformance = 0;
+      renderRoutineModes();
+      saveState();
+      renderWeeklyChart();
+    }
+
+    function updatePerformanceDisplay() {
+      const currentPerf = state.customPerformance !== null ? state.customPerformance : 0;
+      document.getElementById('daily-performance-val').innerText = currentPerf + '%';
+      document.getElementById('daily-performance-bar').style.width = currentPerf + '%';
+    }
+
+    function addRoutineMode() {
+      const name = prompt('Nome do novo modo de rotina:');
+      if (!name) return;
+      const perf = prompt('Porcentagem de Desempenho base (0 a 100):', '50');
+      const perfVal = parseInt(perf) || 50;
+
+      const newId = Date.now();
+      state.routineModes.push({ id: newId, name, perf: perfVal });
+      state.selectedModeId = newId;
+      state.customPerformance = perfVal;
+      renderRoutineModes();
+      saveState();
+    }
+
+    function editRoutineMode(id) {
+      const mode = state.routineModes.find(m => m.id === id);
+      if (!mode) return;
+
+      const newName = prompt('Editar nome do modo:', mode.name);
+      if (newName) {
+        mode.name = newName;
+        const newPerf = prompt('Editar porcentagem de desempenho:', mode.perf);
+        if (newPerf) mode.perf = parseInt(newPerf) || mode.perf;
+        renderRoutineModes();
+        saveState();
+      }
+    }
+
+    function deleteRoutineMode(id) {
+      if (state.routineModes.length <= 1) {
+        alert('Você precisa ter pelo menos 1 modo de rotina.');
+        return;
+      }
+      if (confirm('Deseja excluir este modo de rotina?')) {
+        state.routineModes = state.routineModes.filter(m => m.id !== id);
+        if (state.selectedModeId === id) resetPerformance();
+        else renderRoutineModes();
+        saveState();
+      }
+    }
+
+    // CHECKLIST
+    function updateChecklistProgress() { addXP(5); }
+
+    function addItem(listId) {
+      const text = prompt('Nome do novo item:');
+      if (text) {
+        state.checklistDia.push(text);
+        renderChecklist();
+        saveState();
+      }
+    }
+
+    function editChecklistItem(index) {
+      const newText = prompt('Editar item:', state.checklistDia[index]);
+      if (newText) {
+        state.checklistDia[index] = newText;
+        renderChecklist();
+        saveState();
+      }
+    }
+
+    function deleteChecklistItem(index) {
+      if (confirm('Deseja excluir este item do checklist?')) {
+        state.checklistDia.splice(index, 1);
+        renderChecklist();
+        saveState();
+      }
+    }
+
+    function renderChecklist() {
+      const ul = document.getElementById('list-dia');
+      ul.innerHTML = '';
+      state.checklistDia.forEach((item, index) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <label style="flex:1;"><input type="checkbox" onchange="updateChecklistProgress()" style="width:auto; margin-right:6px;"> ${item}</label>
+          <div class="item-actions">
+            <button class="btn-icon" title="Editar Item" onclick="editChecklistItem(${index})">✏️</button>
+            <button class="btn-icon danger" title="Excluir Item" onclick="deleteChecklistItem(${index})">🗑️</button>
+          </div>
+        `;
+        ul.appendChild(li);
+      });
+    }
+
+    // GRÁFICO SEMANAL
+    let weeklyChart;
+    function renderWeeklyChart() {
+      const ctx = document.getElementById('weeklyChart').getContext('2d');
+      const labels = [];
+      const dataPerf = [];
+
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        const dayLabel = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' });
+        labels.push(dayLabel);
+
+        if (i === 0) {
+          dataPerf.push(state.customPerformance !== null ? state.customPerformance : 0);
+        } else {
+          const hist = state.dailyHistory[dateStr];
+          dataPerf.push(hist ? hist.perf : 0);
+        }
+      }
+
+      if (weeklyChart) weeklyChart.destroy();
+
+      weeklyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Desempenho (%)',
+            data: dataPerf,
+            backgroundColor: '#2563eb',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { min: 0, max: 100, ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+            x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    }
+
+    // FINANÇAS
+    let financeChart;
+    function initChart() {
+      const ctx = document.getElementById('financeChart').getContext('2d');
+      financeChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: ['Fixos', 'Lazer', 'Investimentos', 'Outros'],
+          datasets: [{
+            data: [0, 0, 0, 0],
+            backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#a855f7'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom', labels: { color: '#f8fafc', font: { size: 11 } } } }
+        }
+      });
+    }
+
+    function populateFinanceMonthFilter() {
+      const select = document.getElementById('fin-month-filter');
+      select.innerHTML = `<option value="ALL">Todos os Meses</option>`;
+      const monthsSet = new Set();
+
+      state.transacoes.forEach(t => {
+        if (t.dateStr) {
+          const monthYear = t.dateStr.substring(0, 7);
+          monthsSet.add(monthYear);
+        }
+      });
+
+      Array.from(monthsSet).sort().reverse().forEach(my => {
+        const [y, m] = my.split('-');
+        const opt = document.createElement('option');
+        opt.value = my;
+        opt.innerText = `${m}/${y}`;
+        select.appendChild(opt);
+      });
+    }
+
+    function addTransacao() {
+      const desc = document.getElementById('fin-desc').value;
+      const val = parseFloat(document.getElementById('fin-val').value);
+      const cat = document.getElementById('fin-cat').value;
+
+      if (!desc || isNaN(val) || val <= 0) return;
+
+      const dateStr = getTodayStr();
+      state.transacoes.push({ id: Date.now(), desc, val, cat, dateStr });
+
+      recalculateTotals();
+      populateFinanceMonthFilter();
+      updateFinanceUI();
+      saveState();
+
+      document.getElementById('fin-desc').value = '';
+      document.getElementById('fin-val').value = '';
+    }
+
+    function deleteTransacao(id) {
+      state.transacoes = state.transacoes.filter(t => t.id !== id);
+      recalculateTotals();
+      populateFinanceMonthFilter();
+      updateFinanceUI();
+      saveState();
+    }
+
+    function recalculateTotals() {
+      state.receita = 0;
+      state.despesa = 0;
+      state.catTotals = { "Fixos": 0, "Lazer": 0, "Investimentos": 0, "Outros": 0 };
+
+      state.transacoes.forEach(t => {
+        if (t.cat === 'Entrada') {
+          state.receita += t.val;
+        } else {
+          state.despesa += t.val;
+          state.catTotals[t.cat] = (state.catTotals[t.cat] || 0) + t.val;
+        }
+      });
+    }
+
+    function updateFinanceUI() {
+      const filterMonth = document.getElementById('fin-month-filter').value;
+      
+      let filteredList = state.transacoes;
+      if (filterMonth !== 'ALL') {
+        filteredList = state.transacoes.filter(t => t.dateStr && t.dateStr.startsWith(filterMonth));
+      }
+
+      let mReceita = 0, mDespesa = 0;
+      let mCats = { "Fixos": 0, "Lazer": 0, "Investimentos": 0, "Outros": 0 };
+
+      filteredList.forEach(t => {
+        if (t.cat === 'Entrada') mReceita += t.val;
+        else {
+          mDespesa += t.val;
+          mCats[t.cat] = (mCats[t.cat] || 0) + t.val;
+        }
+      });
+
+      document.getElementById('total-receita').innerText = `R$ ${mReceita.toFixed(2)}`;
+      document.getElementById('total-despesa').innerText = `R$ ${mDespesa.toFixed(2)}`;
+      document.getElementById('total-saldo').innerText = `R$ ${(mReceita - mDespesa).toFixed(2)}`;
+
+      const ul = document.getElementById('fin-list');
+      if (filteredList.length === 0) {
+        ul.innerHTML = `<li><span>Nenhum lançamento registrado neste período.</span> <span>-</span></li>`;
+      } else {
+        ul.innerHTML = '';
+        filteredList.slice().reverse().forEach(t => {
+          const li = document.createElement('li');
+          const cor = t.cat === 'Entrada' ? 'var(--success)' : 'var(--danger)';
+          li.innerHTML = `
+            <span><strong>${t.desc}</strong> (${t.cat})</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color: ${cor}">R$ ${t.val.toFixed(2)}</span>
+              <button class="btn-icon danger" style="width:22px; height:22px; font-size:0.65rem;" onclick="deleteTransacao(${t.id})">🗑️</button>
+            </div>
+          `;
+          ul.appendChild(li);
+        });
+      }
+
+      if (financeChart) {
+        financeChart.data.datasets[0].data = [
+          mCats["Fixos"] || 0,
+          mCats["Lazer"] || 0,
+          mCats["Investimentos"] || 0,
+          mCats["Outros"] || 0
+        ];
+        financeChart.update();
+      }
+    }
+
+    // UBER
+    function populateUberMonthFilter() {
+      const select = document.getElementById('uber-month-filter');
+      select.innerHTML = `<option value="ALL">Todos os Meses</option>`;
+      const monthsSet = new Set();
+
+      state.uberTrips.forEach(u => {
+        if (u.dateStr) {
+          const monthYear = u.dateStr.substring(0, 7);
+          monthsSet.add(monthYear);
+        }
+      });
+
+      Array.from(monthsSet).sort().reverse().forEach(my => {
+        const [y, m] = my.split('-');
+        const opt = document.createElement('option');
+        opt.value = my;
+        opt.innerText = `${m}/${y}`;
+        select.appendChild(opt);
+      });
+    }
+
+    function addUberTrip() {
+      const desc = document.getElementById('uber-desc').value.trim();
+      const val = parseFloat(document.getElementById('uber-val').value);
+
+      if (!desc || isNaN(val) || val <= 0) {
+        alert('Informe uma descrição válida e o valor da corrida.');
+        return;
+      }
+
+      const dateStr = getTodayStr();
+      const displayDate = new Date().toLocaleDateString('pt-BR');
+
+      state.uberTrips.push({ id: Date.now(), desc, val, dateStr, displayDate });
+
+      populateUberMonthFilter();
+      updateUberUI();
+      saveState();
+
+      document.getElementById('uber-desc').value = '';
+      document.getElementById('uber-val').value = '';
+    }
+
+    function deleteUberTrip(id) {
+      state.uberTrips = state.uberTrips.filter(u => u.id !== id);
+      populateUberMonthFilter();
+      updateUberUI();
+      saveState();
+    }
+
+    function updateUberUI() {
+      const filterMonth = document.getElementById('uber-month-filter').value;
+      let totalMonth = 0;
+      let totalAll = 0;
+
+      let filteredList = state.uberTrips;
+
+      state.uberTrips.forEach(u => {
+        totalAll += u.val;
+      });
+
+      if (filterMonth !== 'ALL') {
+        filteredList = state.uberTrips.filter(u => u.dateStr && u.dateStr.startsWith(filterMonth));
+      }
+
+      filteredList.forEach(u => {
+        totalMonth += u.val;
+      });
+
+      document.getElementById('uber-total-month').innerText = `R$ ${totalMonth.toFixed(2)}`;
+      document.getElementById('uber-total-all').innerText = `R$ ${totalAll.toFixed(2)}`;
+
+      const ul = document.getElementById('uber-list');
+      if (filteredList.length === 0) {
+        ul.innerHTML = `<li><span>Nenhuma corrida registrada neste período.</span></li>`;
+        return;
+      }
+
+      ul.innerHTML = '';
+      filteredList.slice().reverse().forEach(u => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <span><strong>${u.displayDate}</strong> - ${u.desc}</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="color: var(--danger); font-weight: bold;">R$ ${u.val.toFixed(2)}</span>
+            <button class="btn-icon danger" style="width:22px; height:22px; font-size:0.65rem;" onclick="deleteUberTrip(${u.id})">🗑️</button>
+          </div>
+        `;
+        ul.appendChild(li);
+      });
+    }
+
+    // RELATÓRIO DIA ANTERIOR
+    function renderPreviousDayReport() {
+      const yesterday = getYesterdayStr();
+      const hist = state.dailyHistory[yesterday];
+      const dateFormatted = new Date(yesterday + 'T00:00:00').toLocaleDateString('pt-BR');
+      
+      document.getElementById('prev-day-date').innerText = dateFormatted;
+
+      if (hist) {
+        document.getElementById('prev-day-text').innerHTML = `
+          🎯 <strong>Desempenho:</strong> ${hist.perf}% | 
+          💧 <strong>Água:</strong> ${hist.water || 0} / 3000 ml
+        `;
+      } else {
+        document.getElementById('prev-day-text').innerText = "Nenhum histórico registrado para o dia anterior.";
+      }
+    }
+
+    // ÁGUA, PEDAL & CAMINHADA
+    function addWater(amount) {
+      state.water += amount;
+      if (state.water > 3000) state.water = 3000;
+      updateWaterUI();
+      addXP(10);
+      saveState();
+    }
+
+    function updateWaterUI() {
+      document.getElementById('water-current').innerText = state.water;
+      document.getElementById('water-bar').style.width = ((state.water / 3000) * 100) + '%';
+    }
+
+    function registrarPedal() {
+      const bikeToday = document.getElementById('bike-today').checked;
+      const km = parseFloat(document.getElementById('bike-km').value) || 0;
+      const min = parseInt(document.getElementById('bike-min').value) || 0;
+
+      if (!bikeToday && km <= 0 && min <= 0) {
+        alert('Informe a distância, o tempo ou marque a opção do dia.');
+        return;
+      }
+
+      const dateStr = new Date().toLocaleDateString('pt-BR');
+      state.bikeHistory.push({ id: Date.now(), date: dateStr, km, min, cameByBike: bikeToday });
+
+      if (bikeToday) addXP(50);
+      if (km > 0) addXP(Math.round(km * 2));
+
+      renderBikeHistory();
+      saveState();
+
+      document.getElementById('bike-today').checked = false;
+      document.getElementById('bike-km').value = '';
+      document.getElementById('bike-min').value = '';
+      alert('Treino de pedal registrado no histórico!');
+    }
+
+    function deleteBikeHistory(id) {
+      state.bikeHistory = state.bikeHistory.filter(b => b.id !== id);
+      renderBikeHistory();
+      saveState();
+    }
+
+    function renderBikeHistory() {
+      const ul = document.getElementById('bike-history-list');
+      if (!state.bikeHistory || state.bikeHistory.length === 0) {
+        ul.innerHTML = `<li><span>Nenhum pedal registrado.</span></li>`;
+        return;
+      }
+      ul.innerHTML = '';
+      state.bikeHistory.slice().reverse().forEach(b => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <span><strong>${b.date}</strong> - ${b.km} km (${b.min} min) ${b.cameByBike ? '🚴 [Veio de bike]' : ''}</span>
+          <button class="btn-icon danger" style="width:22px; height:22px; font-size:0.65rem;" onclick="deleteBikeHistory(${b.id})">🗑️</button>
+        `;
+        ul.appendChild(li);
+      });
+    }
+
+    function toggleWalkOptions(type) {
+      if (type === 'ida' && document.getElementById('walk-ida').checked) {
+        document.getElementById('walk-idavolta').checked = false;
+      } else if (type === 'idavolta' && document.getElementById('walk-idavolta').checked) {
+        document.getElementById('walk-ida').checked = false;
+      }
+    }
+
+    function registrarCaminhada() {
+      const isIda = document.getElementById('walk-ida').checked;
+      const isIdaVolta = document.getElementById('walk-idavolta').checked;
+      const km = parseFloat(document.getElementById('walk-km').value) || 0;
+      const min = parseInt(document.getElementById('walk-min').value) || 0;
+
+      if (!isIda && !isIdaVolta && km <= 0) {
+        alert('Selecione uma modalidade (Ida ou Volta / Ida e Volta) ou informe a distância.');
+        return;
+      }
+
+      let typeText = "Caminhada Espontânea";
+      if (isIdaVolta) typeText = "Ida e Volta";
+      else if (isIda) typeText = "Ida ou Volta";
+
+      const dateStr = new Date().toLocaleDateString('pt-BR');
+      state.walkHistory.push({ id: Date.now(), date: dateStr, km, min, typeText });
+
+      if (isIda) addXP(30);
+      if (isIdaVolta) addXP(60);
+      if (km > 0) addXP(Math.round(km * 3));
+
+      renderWalkHistory();
+      saveState();
+
+      document.getElementById('walk-ida').checked = false;
+      document.getElementById('walk-idavolta').checked = false;
+      document.getElementById('walk-km').value = '';
+      document.getElementById('walk-min').value = '';
+      alert('Caminhada registrada com sucesso!');
+    }
+
+    function deleteWalkHistory(id) {
+      state.walkHistory = state.walkHistory.filter(w => w.id !== id);
+      renderWalkHistory();
+      saveState();
+    }
+
+    function renderWalkHistory() {
+      const ul = document.getElementById('walk-history-list');
+      if (!state.walkHistory || state.walkHistory.length === 0) {
+        ul.innerHTML = `<li><span>Nenhuma caminhada registrada.</span></li>`;
+        return;
+      }
+      ul.innerHTML = '';
+      state.walkHistory.slice().reverse().forEach(w => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <span><strong>${w.date}</strong> - ${w.km} km (${w.min} min) 🚶 [${w.typeText}]</span>
+          <button class="btn-icon danger" style="width:22px; height:22px; font-size:0.65rem;" onclick="deleteWalkHistory(${w.id})">🗑️</button>
+        `;
+        ul.appendChild(li);
+      });
+    }
+
+    // AGENDA & METAS
+    function addAgenda() {
+      const title = document.getElementById('ag-title').value;
+      const date = document.getElementById('ag-date').value;
+      const time = document.getElementById('ag-time').value;
+
+      if (!title) return;
+      state.agenda.push({ id: Date.now(), title, date, time });
+      renderAgenda();
+      checkTodayAgendaAlert();
+      saveState();
+
+      document.getElementById('ag-title').value = '';
+    }
+
+    function deleteAgenda(id) {
+      state.agenda = state.agenda.filter(a => a.id !== id);
+      renderAgenda();
+      checkTodayAgendaAlert();
+      saveState();
+    }
+
+    function renderAgenda() {
+      const ul = document.getElementById('ag-list');
+      if (state.agenda.length === 0) {
+        ul.innerHTML = `<li><span>Sem compromissos agendados</span></li>`;
+        return;
+      }
+      ul.innerHTML = '';
+      state.agenda.forEach(a => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <span>${a.title} (${a.date} ${a.time})</span>
+          <button class="btn-icon danger" style="width:22px; height:22px; font-size:0.65rem;" onclick="deleteAgenda(${a.id})">🗑️</button>
+        `;
+        ul.appendChild(li);
+      });
+    }
+
+    function addMeta(e, type) {
+      if (e.key === 'Enter' && e.target.value) {
+        state.metas[type].push(e.target.value);
+        renderMetas();
+        saveState();
+        e.target.value = '';
+      }
+    }
+
+    function deleteMeta(type, index) {
+      state.metas[type].splice(index, 1);
+      renderMetas();
+      saveState();
+    }
+
+    function renderMetas() {
+      ['curto', 'medio', 'longo'].forEach(type => {
+        const ul = document.getElementById(`meta-${type}`);
+        ul.innerHTML = '';
+        state.metas[type].forEach((m, index) => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <label style="flex:1;"><input type="checkbox" onchange="updateChecklistProgress()" style="width:auto; margin-right:6px;"> ${m}</label>
+            <button class="btn-icon danger" style="width:22px; height:22px; font-size:0.65rem;" onclick="deleteMeta('${type}', ${index})">🗑️</button>
+          `;
+          ul.appendChild(li);
+        });
+      });
+    }
+
+    // EXPORTAR PRÓPRIO CÓDIGO HTML
+    function downloadSelfHtml() {
+      const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+      const blob = new Blob([htmlContent], { type: 'text/html' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'index.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    // BACKUP DADOS
+    function exportBackup() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `routine_backup_${currentUser}_${getTodayStr()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importBackup() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json';
+      input.onchange = e => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = event => {
+          try {
+            const importedData = JSON.parse(event.target.result);
+            state = importedData;
+            saveState();
+            alert('Backup restaurado com sucesso!');
+            initApp();
+          } catch (err) {
+            alert('Erro ao importar arquivo de backup.');
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+
+    // LEITURA BÍBLICA COMPLETA
+    const bibleBooks = [
+      { name: "Gênesis", api: "genesis", abiblia: "gn", ch: 50 }, { name: "Êxodo", api: "exodus", abiblia: "ex", ch: 40 }, { name: "Levítico", api: "leviticus", abiblia: "lv", ch: 27 },
+      { name: "Números", api: "numbers", abiblia: "num", ch: 36 }, { name: "Deuteronômio", api: "deuteronomy", abiblia: "dt", ch: 34 }, { name: "Josué", api: "joshua", abiblia: "js", ch: 24 },
+      { name: "Juízes", api: "judges", abiblia: "jz", ch: 21 }, { name: "Rute", api: "ruth", abiblia: "rt", ch: 4 }, { name: "1 Samuel", api: "1samuel", abiblia: "1sm", ch: 31 },
+      { name: "2 Samuel", api: "2samuel", abiblia: "2sm", ch: 24 }, { name: "1 Reis", api: "1kings", abiblia: "1rs", ch: 22 }, { name: "2 Reis", api: "2kings", abiblia: "2rs", ch: 25 },
+      { name: "1 Crônicas", api: "1chronicles", abiblia: "1cr", ch: 29 }, { name: "2 Crônicas", api: "2chronicles", abiblia: "2cr", ch: 36 }, { name: "Esdras", api: "ezra", abiblia: "ez", ch: 10 },
+      { name: "Neemias", api: "nehemiah", abiblia: "ne", ch: 13 }, { name: "Ester", api: "esther", abiblia: "et", ch: 10 }, { name: "Jó", api: "job", abiblia: "job", ch: 42 },
+      { name: "Salmos", api: "psalms", abiblia: "sl", ch: 150 }, { name: "Provérbios", api: "proverbs", abiblia: "pv", ch: 31 }, { name: "Eclesiastes", api: "ecclesiastes", abiblia: "ec", ch: 12 },
+      { name: "Cânticos", api: "songofsolomon", abiblia: "ct", ch: 8 }, { name: "Isaías", api: "isaiah", abiblia: "is", ch: 66 }, { name: "Jeremias", api: "jeremiah", abiblia: "jr", ch: 52 },
+      { name: "Lamentações", api: "lamentations", abiblia: "lm", ch: 5 }, { name: "Ezequiel", api: "ezekiel", abiblia: "ezk", ch: 48 }, { name: "Daniel", api: "daniel", abiblia: "dn", ch: 12 },
+      { name: "Oséias", api: "hosea", abiblia: "ho", ch: 14 }, { name: "Joel", api: "joel", abiblia: "jl", ch: 3 }, { name: "Amós", api: "amos", abiblia: "am", ch: 9 },
+      { name: "Obadias", api: "obadiah", abiblia: "ob", ch: 1 }, { name: "Jonas", api: "jonah", abiblia: "jn", ch: 4 }, { name: "Miquéias", api: "micah", abiblia: "mq", ch: 7 },
+      { name: "Naum", api: "nahum", abiblia: "na", ch: 3 }, { name: "Habacuque", api: "habakkuk", abiblia: "hc", ch: 3 }, { name: "Sofonias", api: "zephaniah", abiblia: "sf", ch: 3 },
+      { name: "Ageu", api: "haggai", abiblia: "ag", ch: 2 }, { name: "Zacarias", api: "zechariah", abiblia: "zc", ch: 14 }, { name: "Malaquias", api: "malachi", abiblia: "ml", ch: 4 },
+      { name: "Mateus", api: "matthew", abiblia: "mt", ch: 28 }, { name: "Marcos", api: "mark", abiblia: "mc", ch: 16 }, { name: "Lucas", api: "luke", abiblia: "lc", ch: 24 },
+      { name: "João", api: "john", abiblia: "jo", ch: 21 }, { name: "Atos", api: "acts", abiblia: "at", ch: 28 }, { name: "Romanos", api: "romans", abiblia: "rm", ch: 16 },
+      { name: "1 Coríntios", api: "1corinthians", abiblia: "1co", ch: 16 }, { name: "2 Coríntios", api: "2corinthians", abiblia: "2co", ch: 13 }, { name: "Gálatas", api: "galatians", abiblia: "gl", ch: 6 },
+      { name: "Efésios", api: "ephesians", abiblia: "ef", ch: 6 }, { name: "Filipenses", api: "philippians", abiblia: "fp", ch: 4 }, { name: "Colossenses", api: "colossians", abiblia: "cl", ch: 4 },
+      { name: "1 Tessalonicenses", api: "1thessalonians", abiblia: "1ts", ch: 5 }, { name: "2 Tessalonicenses", api: "2thessalonians", abiblia: "2ts", ch: 3 }, { name: "1 Timóteo", api: "1timothy", abiblia: "1tm", ch: 6 },
+      { name: "2 Timóteo", api: "2timothy", abiblia: "2tm", ch: 4 }, { name: "Tito", api: "titus", abiblia: "tt", ch: 3 }, { name: "Filemom", api: "philemon", abiblia: "fm", ch: 1 },
+      { name: "Hebreus", api: "hebrews", abiblia: "hb", ch: 13 }, { name: "Tiago", api: "james", abiblia: "tg", ch: 5 }, { name: "1 Pedro", api: "1peter", abiblia: "1pe", ch: 5 },
+      { name: "2 Pedro", api: "2peter", abiblia: "2pe", ch: 3 }, { name: "1 João", api: "1john", abiblia: "1jo", ch: 5 }, { name: "2 João", api: "2john", abiblia: "2jo", ch: 1 },
+      { name: "3 João", api: "3john", abiblia: "3jo", ch: 1 }, { name: "Judas", api: "jude", abiblia: "jd", ch: 1 }, { name: "Apocalipse", api: "revelation", abiblia: "ap", ch: 22 }
+    ];
+
+    function initFullBibleSelectors() {
+      const bookSel = document.getElementById('bible-select-book');
+      if (bookSel.children.length === 0) {
+        bibleBooks.forEach((b, idx) => {
+          const opt = document.createElement('option');
+          opt.value = idx;
+          opt.innerText = b.name;
+          bookSel.appendChild(opt);
+        });
+        updateChapterOptions();
+      }
+    }
+
+    function updateChapterOptions() {
+      const bookIdx = document.getElementById('bible-select-book').value;
+      const book = bibleBooks[bookIdx];
+      const chSel = document.getElementById('bible-select-chapter');
+      chSel.innerHTML = '';
+
+      for (let i = 1; i <= book.ch; i++) {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.innerText = `Capítulo ${i}`;
+        chSel.appendChild(opt);
+      }
+    }
+
+    async function fetchFullBibleChapter() {
+      const bookIdx = document.getElementById('bible-select-book').value;
+      const chNum = document.getElementById('bible-select-chapter').value;
+      const book = bibleBooks[bookIdx];
+      const container = document.getElementById('full-bible-content');
+
+      container.innerHTML = `<em>Buscando ${book.name} ${chNum}...</em>`;
+
+      let apiQuery = book.api.replace(/^(\d+)/, '$1+');
+
+      try {
+        const res1 = await fetch(`https://bible-api.com/${encodeURIComponent(apiQuery)}+${chNum}?translation=almeida`);
+        if (res1.ok) {
+          const data1 = await res1.json();
+          if (data1 && data1.verses && data1.verses.length > 0) {
+            let html = `<h2>${book.name} ${chNum} (Almeida)</h2><br>`;
+            data1.verses.forEach(v => {
+              html += `<p><strong>${v.verse}</strong> ${v.text.trim()}</p>`;
+            });
+            container.innerHTML = html;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Tentativa na bible-api almeida falhou:', e);
+      }
+
+      try {
+        const res2 = await fetch(`https://www.abibliadigital.com.br/api/verses/nvi/${book.abiblia}/${chNum}`);
+        if (res2.ok) {
+          const data2 = await res2.json();
+          if (data2 && data2.verses && data2.verses.length > 0) {
+            let html = `<h2>${book.name} ${chNum} (NVI Português)</h2><br>`;
+            data2.verses.forEach(v => {
+              html += `<p><strong>${v.number}</strong> ${v.text.trim()}</p>`;
+            });
+            container.innerHTML = html;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Tentativa na abibliadigital falhou:', e);
+      }
+
+      container.innerHTML = `
+        <h2>${book.name} ${chNum}</h2><br>
+        <p style="color: var(--danger);">Não foi possível carregar este capítulo em português no momento. Verifique sua conexão com a internet ou tente novamente em alguns instantes.</p>
+      `;
+    }
+
+    // PLANO BÍBLICO (PROGRESSO DOS 66 LIVROS)
+    let totalCapitulos = 1189;
+
+    function initBiblePlan() {
+      const container = document.getElementById('bible-books-container');
+      container.innerHTML = '';
+
+      bibleBooks.forEach(book => {
+        const card = document.createElement('div');
+        card.className = 'book-card';
+        
+        let chipsHTML = '';
+        for (let i = 1; i <= book.ch; i++) {
+          const key = `${book.name}_${i}`;
+          const isRead = state.readChapters[key] ? 'read' : '';
+          chipsHTML += `<div class="chip-ch ${isRead}" onclick="toggleChapter(this, '${book.name}', ${i})">${i}</div>`;
+        }
+
+        card.innerHTML = `
+          <div class="book-header">
+            <span>${book.name}</span>
+            <span style="font-size: 0.75rem; color: var(--primary);" class="card-percent">0%</span>
+          </div>
+          <div class="chapters-grid">${chipsHTML}</div>
+        `;
+        container.appendChild(card);
+        updateBookPercent(card);
+      });
+      updateGlobalBibleProgress();
+    }
+
+    function toggleChapter(el, bookName, chNum) {
+      const key = `${bookName}_${chNum}`;
+      el.classList.toggle('read');
+      
+      if (el.classList.contains('read')) {
+        state.readChapters[key] = true;
+        addXP(5);
+      } else {
+        delete state.readChapters[key];
+      }
+
+      const bookCard = el.closest('.book-card');
+      updateBookPercent(bookCard);
+      updateGlobalBibleProgress();
+      saveState();
+    }
+
+    function updateBookPercent(bookCard) {
+      const totalBook = bookCard.querySelectorAll('.chip-ch').length;
+      const readBook = bookCard.querySelectorAll('.chip-ch.read').length;
+      const percent = ((readBook / totalBook) * 100).toFixed(0);
+      bookCard.querySelector('.card-percent').innerText = `${percent}%`;
+    }
+
+    function updateGlobalBibleProgress() {
+      const totalRead = Object.keys(state.readChapters).length;
+      const globalPercent = ((totalRead / totalCapitulos) * 100).toFixed(1);
+      document.getElementById('bible-total-percent').innerText = `${globalPercent}%`;
+      document.getElementById('bible-global-bar').style.width = `${globalPercent}%`;
+    }
+
+    function initApp() {
+      document.getElementById('player-xp').innerText = state.xp;
+      document.getElementById('player-level').innerText = state.level;
+      renderRoutineModes();
+      renderChecklist();
+      renderAgenda();
+      renderMetas();
+      updateWaterUI();
+      initChart();
+      populateFinanceMonthFilter();
+      updateFinanceUI();
+      populateUberMonthFilter();
+      updateUberUI();
+      renderBikeHistory();
+      renderWalkHistory();
+      renderPreviousDayReport();
+      renderWeeklyChart();
+      initBiblePlan();
+      checkTodayAgendaAlert();
+      requestNotificationPermission();
+    }
+
+    if ('serviceWorker' in navigator) {
+      const swCode = `self.addEventListener('fetch', function(e) { e.respondWith(fetch(e.request)); });`;
+      const blob = new Blob([swCode], { type: 'application/javascript' });
+      navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+    }
+
+    window.onload = function() {
+      const savedUser = localStorage.getItem('routine_current_user');
+      if (savedUser) {
+        currentUser = savedUser;
+        document.getElementById('auth-overlay').style.display = 'none';
+        document.getElementById('logged-user-display').innerText = `👤 ${currentUser}`;
+        loadState();
+        checkDailyReset();
+        initApp();
+      } else {
+        document.getElementById('auth-overlay').style.display = 'flex';
+      }
+    };
+  </script>
+</body>
+</html>
