@@ -221,8 +221,8 @@
       <div class="grid-2">
         <div class="card">
           <div class="card-title">
-            <span>Checklist do Dia</span>
-            <button onclick="addItem('list-dia')" style="width: auto; padding: 3px 8px;">+ Item</button>
+            <span id="checklist-title">Checklist do Modo</span>
+            <button onclick="addItem()" style="width: auto; padding: 3px 8px;">+ Item</button>
           </div>
           <ul class="item-list" id="list-dia"></ul>
         </div>
@@ -324,7 +324,7 @@
       </div>
     </section>
 
-    <!-- ABA 4: HÁBITOS (COM PEDAL E CAMINHADA) -->
+    <!-- ABA 4: HÁBITOS -->
     <section id="saude-rpg" class="tab-content">
       <div class="header-title">
         <span>Hábitos</span>
@@ -518,14 +518,13 @@
       despesa: 0,
       catTotals: { "Fixos": 0, "Lazer": 0, "Investimentos": 0, "Outros": 0 },
       routineModes: [
-        { id: 1, name: "🏢🚴 [A] CLT c/ Pedal", perf: 25 },
-        { id: 2, name: "🏢 [B] CLT s/ Pedal", perf: 50 },
-        { id: 3, name: "🌴🎮 [C] Folga c/ Lazer", perf: 75 },
-        { id: 4, name: "🌴💤 [D] Folga Total", perf: 100 }
+        { id: 1, name: "🏢🚴 [A] CLT c/ Pedal", habits: ["Bater ponto no horário", "Treino de Pedal executado", "Beber 2L de água", "Revisar tarefas do dia"] },
+        { id: 2, name: "🏢 [B] CLT s/ Pedal", habits: ["Bater ponto no horário", "30 min de Leitura", "Beber 2L de água", "Revisar metas do mês"] },
+        { id: 3, name: "🌴🎮 [C] Folga c/ Lazer", habits: ["Momento Lazer / Jogos", "Caminhada leve", "Leitura Bíblica", "Organizar espaço pessoal"] },
+        { id: 4, name: "🌴💤 [D] Folga Total", habits: ["Descanso total", "Alimentação consciente", "Meditação / Oração"] }
       ],
       selectedModeId: null,
-      customPerformance: null,
-      checklistDia: ["Cumprir meta de foco", "Treino / Pedal executado"],
+      completedHabits: {}, // Armazena hábitos marcados por modo { modeId: [index1, index2] }
       agenda: [],
       metas: { curto: ["Ajustar bike"], medio: ["Reserva de emergência"], longo: ["Projeto finalizado"] },
       readChapters: {},
@@ -554,6 +553,12 @@
         if (!state.walkHistory) state.walkHistory = [];
         if (!state.uberTrips) state.uberTrips = [];
         if (!state.dailyHistory) state.dailyHistory = {};
+        if (!state.completedHabits) state.completedHabits = {};
+        
+        // Garantir compatibilidade com modos antigos se não tiverem campo 'habits'
+        state.routineModes.forEach(mode => {
+          if (!mode.habits) mode.habits = ["Tarefa 1", "Tarefa 2"];
+        });
       }
     }
 
@@ -614,14 +619,14 @@
     function checkDailyReset() {
       const today = getTodayStr();
       if (state.lastActiveDate && state.lastActiveDate !== today) {
-        const prevPerf = state.customPerformance !== null ? state.customPerformance : 0;
+        const currentPerf = calculateCurrentPerformance();
         state.dailyHistory[state.lastActiveDate] = {
-          perf: prevPerf,
+          perf: currentPerf,
           water: state.water
         };
 
-        state.customPerformance = 0;
         state.selectedModeId = null;
+        state.completedHabits = {};
         state.water = 0;
       }
       state.lastActiveDate = today;
@@ -668,6 +673,36 @@
       }
     }
 
+    // SÍNTESE DE ÁUDIO PARA SOM DE 100% / MISSÃO CUMPRIDA
+    function playVictorySound() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+
+        const playTone = (freq, type, start, duration) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = type;
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.15, ctx.currentTime + start);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + start);
+          osc.stop(ctx.currentTime + start + duration);
+        };
+
+        // Fanfarra estilo RPG / Level Up (C5 -> E5 -> G5 -> C6)
+        playTone(523.25, 'triangle', 0.0, 0.15);
+        playTone(659.25, 'triangle', 0.15, 0.15);
+        playTone(783.99, 'triangle', 0.30, 0.15);
+        playTone(1046.50, 'sine', 0.45, 0.50);
+      } catch (e) {
+        console.warn('Erro ao reproduzir som de vitória:', e);
+      }
+    }
+
     // GAMIFICAÇÃO & RPG
     function addXP(amount) {
       state.xp += amount;
@@ -685,6 +720,7 @@
       if (typeof confetti === 'function') {
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       }
+      playVictorySound();
       alert(`🎉 LEVEL UP! Você alcançou o Nível ${state.level}!`);
     }
 
@@ -711,7 +747,7 @@
       }
     }
 
-    // ROTINAS
+    // ROTINAS & MODOS DO DIA (CÁLCULO DINÂMICO BASEADO EM HÁBITOS)
     function renderRoutineModes() {
       const container = document.getElementById('routine-modes-container');
       container.innerHTML = '';
@@ -722,38 +758,50 @@
         div.className = `routine-card-wrapper ${isSelected}`;
 
         div.innerHTML = `
-          <button class="routine-btn-label" onclick="selectRoutineMode(${mode.id}, ${mode.perf})">
+          <button class="routine-btn-label" onclick="selectRoutineMode(${mode.id})">
             ${mode.name}
           </button>
           <div class="routine-actions">
-            <button class="btn-icon" title="Editar Modo" onclick="editRoutineMode(${mode.id})">✏️</button>
+            <button class="btn-icon" title="Editar Nome do Modo" onclick="editRoutineMode(${mode.id})">✏️</button>
             <button class="btn-icon danger" title="Excluir Modo" onclick="deleteRoutineMode(${mode.id})">🗑️</button>
           </div>
         `;
         container.appendChild(div);
       });
 
+      renderChecklist();
       updatePerformanceDisplay();
     }
 
-    function selectRoutineMode(id, performance) {
+    function selectRoutineMode(id) {
       state.selectedModeId = id;
-      state.customPerformance = performance;
       renderRoutineModes();
       saveState();
       renderWeeklyChart();
     }
 
     function resetPerformance() {
-      state.selectedModeId = null;
-      state.customPerformance = 0;
-      renderRoutineModes();
+      if (state.selectedModeId) {
+        state.completedHabits[state.selectedModeId] = [];
+      }
+      renderChecklist();
+      updatePerformanceDisplay();
       saveState();
       renderWeeklyChart();
     }
 
+    function calculateCurrentPerformance() {
+      if (!state.selectedModeId) return 0;
+      const mode = state.routineModes.find(m => m.id === state.selectedModeId);
+      if (!mode || !mode.habits || mode.habits.length === 0) return 0;
+
+      const completed = state.completedHabits[state.selectedModeId] || [];
+      const perf = Math.round((completed.length / mode.habits.length) * 100);
+      return perf;
+    }
+
     function updatePerformanceDisplay() {
-      const currentPerf = state.customPerformance !== null ? state.customPerformance : 0;
+      const currentPerf = calculateCurrentPerformance();
       document.getElementById('daily-performance-val').innerText = currentPerf + '%';
       document.getElementById('daily-performance-bar').style.width = currentPerf + '%';
     }
@@ -761,13 +809,14 @@
     function addRoutineMode() {
       const name = prompt('Nome do novo modo de rotina:');
       if (!name) return;
-      const perf = prompt('Porcentagem de Desempenho base (0 a 100):', '50');
-      const perfVal = parseInt(perf) || 50;
 
       const newId = Date.now();
-      state.routineModes.push({ id: newId, name, perf: perfVal });
+      state.routineModes.push({
+        id: newId,
+        name: name,
+        habits: ["Minha primeira tarefa", "Segunda tarefa"]
+      });
       state.selectedModeId = newId;
-      state.customPerformance = perfVal;
       renderRoutineModes();
       saveState();
     }
@@ -779,8 +828,6 @@
       const newName = prompt('Editar nome do modo:', mode.name);
       if (newName) {
         mode.name = newName;
-        const newPerf = prompt('Editar porcentagem de desempenho:', mode.perf);
-        if (newPerf) mode.perf = parseInt(newPerf) || mode.perf;
         renderRoutineModes();
         saveState();
       }
@@ -793,51 +840,117 @@
       }
       if (confirm('Deseja excluir este modo de rotina?')) {
         state.routineModes = state.routineModes.filter(m => m.id !== id);
-        if (state.selectedModeId === id) resetPerformance();
-        else renderRoutineModes();
+        delete state.completedHabits[id];
+        if (state.selectedModeId === id) state.selectedModeId = null;
+        renderRoutineModes();
         saveState();
       }
     }
 
-    // CHECKLIST
-    function updateChecklistProgress() { addXP(5); }
+    // CHECKLIST DE HÁBITOS DO MODO SELECIONADO
+    function toggleHabit(modeId, habitIndex) {
+      if (!state.completedHabits[modeId]) state.completedHabits[modeId] = [];
+      const list = state.completedHabits[modeId];
 
-    function addItem(listId) {
-      const text = prompt('Nome do novo item:');
+      const idxInCompleted = list.indexOf(habitIndex);
+      if (idxInCompleted === -1) {
+        list.push(habitIndex);
+        addXP(10);
+      } else {
+        list.splice(idxInCompleted, 1);
+      }
+
+      updatePerformanceDisplay();
+      saveState();
+      renderWeeklyChart();
+
+      // Verificar 100%
+      const currentPerf = calculateCurrentPerformance();
+      if (currentPerf === 100) {
+        if (typeof confetti === 'function') {
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+        }
+        playVictorySound();
+      }
+    }
+
+    function addItem() {
+      if (!state.selectedModeId) {
+        alert('Selecione um Modo do Dia acima para adicionar hábitos a ele!');
+        return;
+      }
+      const mode = state.routineModes.find(m => m.id === state.selectedModeId);
+      if (!mode) return;
+
+      const text = prompt('Nome do novo hábito/tarefa para este modo:');
       if (text) {
-        state.checklistDia.push(text);
+        mode.habits.push(text);
         renderChecklist();
+        updatePerformanceDisplay();
         saveState();
       }
     }
 
     function editChecklistItem(index) {
-      const newText = prompt('Editar item:', state.checklistDia[index]);
+      if (!state.selectedModeId) return;
+      const mode = state.routineModes.find(m => m.id === state.selectedModeId);
+      if (!mode) return;
+
+      const newText = prompt('Editar hábito:', mode.habits[index]);
       if (newText) {
-        state.checklistDia[index] = newText;
+        mode.habits[index] = newText;
         renderChecklist();
         saveState();
       }
     }
 
     function deleteChecklistItem(index) {
-      if (confirm('Deseja excluir este item do checklist?')) {
-        state.checklistDia.splice(index, 1);
+      if (!state.selectedModeId) return;
+      const mode = state.routineModes.find(m => m.id === state.selectedModeId);
+      if (!mode) return;
+
+      if (confirm('Deseja excluir este hábito do modo?')) {
+        mode.habits.splice(index, 1);
+        if (state.completedHabits[mode.id]) {
+          state.completedHabits[mode.id] = state.completedHabits[mode.id].filter(i => i !== index).map(i => i > index ? i - 1 : i);
+        }
         renderChecklist();
+        updatePerformanceDisplay();
         saveState();
       }
     }
 
     function renderChecklist() {
       const ul = document.getElementById('list-dia');
+      const titleEl = document.getElementById('checklist-title');
+
+      if (!state.selectedModeId) {
+        titleEl.innerText = "Checklist do Modo (Nenhum selecionado)";
+        ul.innerHTML = `<li><span style="color:var(--text-muted);">Clique em um dos Modos do Dia acima para carregar o perfil de hábitos.</span></li>`;
+        return;
+      }
+
+      const mode = state.routineModes.find(m => m.id === state.selectedModeId);
+      if (!mode) return;
+
+      titleEl.innerText = `Checklist: ${mode.name}`;
       ul.innerHTML = '';
-      state.checklistDia.forEach((item, index) => {
+
+      const completedList = state.completedHabits[mode.id] || [];
+
+      if (!mode.habits || mode.habits.length === 0) {
+        ul.innerHTML = `<li><span style="color:var(--text-muted);">Nenhum hábito cadastrado neste modo. Clique em "+ Item" para adicionar.</span></li>`;
+        return;
+      }
+
+      mode.habits.forEach((habit, index) => {
+        const isChecked = completedList.includes(index) ? 'checked' : '';
         const li = document.createElement('li');
         li.innerHTML = `
-          <label style="flex:1;"><input type="checkbox" onchange="updateChecklistProgress()" style="width:auto; margin-right:6px;"> ${item}</label>
+          <label style="flex:1; cursor:pointer;"><input type="checkbox" ${isChecked} onchange="toggleHabit(${mode.id}, ${index})" style="width:auto; margin-right:8px;"> ${habit}</label>
           <div class="item-actions">
-            <button class="btn-icon" title="Editar Item" onclick="editChecklistItem(${index})">✏️</button>
-            <button class="btn-icon danger" title="Excluir Item" onclick="deleteChecklistItem(${index})">🗑️</button>
+            <button class="btn-icon" title="Editar Hábito" onclick="editChecklistItem(${index})">✏️</button>
+            <button class="btn-icon danger" title="Excluir Hábito" onclick="deleteChecklistItem(${index})">🗑️</button>
           </div>
         `;
         ul.appendChild(li);
@@ -859,7 +972,7 @@
         labels.push(dayLabel);
 
         if (i === 0) {
-          dataPerf.push(state.customPerformance !== null ? state.customPerformance : 0);
+          dataPerf.push(calculateCurrentPerformance());
         } else {
           const hist = state.dailyHistory[dateStr];
           dataPerf.push(hist ? hist.perf : 0);
@@ -1325,7 +1438,7 @@
         state.metas[type].forEach((m, index) => {
           const li = document.createElement('li');
           li.innerHTML = `
-            <label style="flex:1;"><input type="checkbox" onchange="updateChecklistProgress()" style="width:auto; margin-right:6px;"> ${m}</label>
+            <label style="flex:1;"><input type="checkbox" onchange="addXP(5)" style="width:auto; margin-right:6px;"> ${m}</label>
             <button class="btn-icon danger" style="width:22px; height:22px; font-size:0.65rem;" onclick="deleteMeta('${type}', ${index})">🗑️</button>
           `;
           ul.appendChild(li);
@@ -1548,7 +1661,6 @@
       document.getElementById('player-xp').innerText = state.xp;
       document.getElementById('player-level').innerText = state.level;
       renderRoutineModes();
-      renderChecklist();
       renderAgenda();
       renderMetas();
       updateWaterUI();
